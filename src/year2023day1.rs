@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-fn step1(file_name: String) -> std::io::Result<usize> {
+fn step1(file_name: &str) -> std::io::Result<usize> {
     let file = File::open(file_name)?;
     let reader = BufReader::new(file);
 
@@ -14,9 +14,7 @@ fn step1(file_name: String) -> std::io::Result<usize> {
         for c in line.unwrap().chars() {
             if c.is_ascii_digit() {
                 let n = c.to_digit(10).unwrap() as usize;
-                if first == None {
-                    first = Some(n);
-                }
+                first.get_or_insert(n);
                 last = Some(n);
             }
         }
@@ -32,47 +30,31 @@ enum ParseError {
     NoMatch
 }
 
-fn parse_value(s: &String) -> Result<usize, ParseError> {
+const NUMBER_WORDS: [(&str, usize); 10] = [
+    ("zero", 0), ("one", 1), ("two", 2), ("three", 3), ("four", 4),
+    ("five", 5), ("six", 6), ("seven", 7), ("eight", 8), ("nine", 9),
+];
+
+fn parse_value(s: &str) -> Result<usize, ParseError> {
     if s.is_empty() {
-        return Err(ParseError::Empty)
+        return Err(ParseError::Empty);
     }
-    if s.chars().next().unwrap().is_ascii_digit() {
-        return Ok(s.chars().next().unwrap().to_digit(10).unwrap() as usize);
+
+    let first_char = s.chars().next().unwrap();
+    if first_char.is_ascii_digit() {
+        return Ok(first_char.to_digit(10).unwrap() as usize);
     }
-    if s.starts_with("one") {
-        return Ok(1);
+
+    for (word, value) in NUMBER_WORDS.iter() {
+        if s.starts_with(word) {
+            return Ok(*value);
+        }
     }
-    if s.starts_with("two") {
-        return Ok(2);
-    }
-    if s.starts_with("three") {
-        return Ok(3);
-    }
-    if s.starts_with("four") {
-        return Ok(4);
-    }
-    if s.starts_with("five") {
-        return Ok(5);
-    }
-    if s.starts_with("six") {
-        return Ok(6);
-    }
-    if s.starts_with("seven") {
-        return Ok(7);
-    }
-    if s.starts_with("eight") {
-        return Ok(8);
-    }
-    if s.starts_with("nine") {
-        return Ok(9);
-    }
-    if s.starts_with("zero") { 
-        return Ok(0);
-    }
+
     Err(ParseError::NoMatch)
 }
 
-fn step2(file_name: String) -> std::io::Result<usize> {
+fn step2(file_name: &str) -> std::io::Result<usize> {
     let file = File::open(file_name)?;
     let reader = BufReader::new(file);
 
@@ -108,37 +90,37 @@ mod tests {
 
     #[test]
     fn test_step1_example() {
-        let result = step1("input/2023-01-e1.txt".to_string()).unwrap();
+        let result = step1("input/2023-01-e1.txt").unwrap();
         assert_eq!(result, 142);
     }
 
     #[test]
     fn test_step1() {
-        let result = step1("input/2023-01-i1.txt".to_string()).unwrap();
+        let result = step1("input/2023-01-i1.txt").unwrap();
         assert_eq!(result, 53651);
     }
     
     #[test]
     fn test_parse_value_digit() {
-        let result = parse_value(&"1other".to_string()).unwrap();
+        let result = parse_value(&"1other").unwrap();
         assert_eq!(result, 1usize)
     }
 
     #[test]
     fn test_parse_value_word() {
-        let result = parse_value(&"oneother".to_string()).unwrap();
+        let result = parse_value(&"oneother").unwrap();
         assert_eq!(result, 1usize)
     }
 
     #[test]
     fn test_step2_example() {
-        let result = step2("input/2023-01-e2.txt".to_string()).unwrap();
+        let result = step2("input/2023-01-e2.txt").unwrap();
         assert_eq!(result, 281);
     }
 
     #[test]
     fn test_step2() {
-        let result = step2("input/2023-01-i1.txt".to_string()).unwrap();
+        let result = step2("input/2023-01-i1.txt").unwrap();
         assert_eq!(result, 53894);
     }
 }
