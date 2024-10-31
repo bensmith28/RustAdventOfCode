@@ -212,7 +212,7 @@ mod year2023day3 {
         }
         
         mod part2 {
-            use crate::year2023day3::year2023day3::{filter_for_part1, filter_for_part2, parse_schematic, Tile};
+            use crate::year2023day3::year2023day3::{filter_for_part2, parse_schematic};
 
             #[test]
             fn example() {

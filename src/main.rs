@@ -4,6 +4,7 @@ use std::io::{BufRead, BufReader, Lines};
 mod year2023day1;
 mod year2023day2;
 mod year2023day3;
+mod year2023day4;
 
 fn main() {
     println!("Hello, world!");
