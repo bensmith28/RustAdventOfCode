@@ -6,19 +6,19 @@ mod year2023day5 {
     #[derive(Debug)]
     #[derive(Clone)]
     struct RangeDelta {
-        range: Range<usize>,
+        in_range: Range<isize>,
         delta: isize,
     }
 
     impl RangeDelta {
         fn parse(l: &str) -> RangeDelta {
             let mut iter = l.trim().split_whitespace();
-            let dest_start = iter.next().unwrap().parse::<usize>().unwrap();
-            let source_start = iter.next().unwrap().parse::<usize>().unwrap();
-            let length = iter.next().unwrap().parse::<usize>().unwrap();
+            let dest_start = iter.next().unwrap().parse::<isize>().unwrap();
+            let source_start = iter.next().unwrap().parse::<isize>().unwrap();
+            let length = iter.next().unwrap().parse::<isize>().unwrap();
 
             RangeDelta {
-                range: source_start..source_start + length,
+                in_range: source_start..source_start + length,
                 delta: dest_start as isize - source_start as isize,
             }
         }
@@ -79,14 +79,14 @@ mod year2023day5 {
                 layers,
             }
         }
-        
+
         fn part1(&self) -> isize {
             let mut lowest = isize::MAX;
             for seed in &self.seeds {
                 let mut location = seed.clone() as isize;
                 for layer in &self.layers {
                     let delta = layer.ranges.iter().find(|rd| {
-                        rd.range.contains(&(location as usize))
+                        rd.in_range.contains(&location)
                     }).map(|rd| { rd.delta }).unwrap_or(0);
                     location += delta;
                 }
@@ -95,6 +95,60 @@ mod year2023day5 {
                 }
             }
             lowest
+        }
+
+        fn part2(&self) -> isize {
+            let mut seed_ranges: Vec<Range<isize>> = Vec::new();
+            let mut seed_iter = self.seeds.iter();
+            while let (Some(a), Some(b)) = (seed_iter.next(), seed_iter.next()) {
+                seed_ranges.push((*a as isize)..((a+b) as isize));
+            }
+            seed_ranges.sort_by_key(|r| r.start);
+            
+            let mut i = seed_ranges.first().unwrap().start as isize;
+            let mut best = isize::MAX;
+            while i < isize::MAX {
+                let mut out = i;
+                let mut delta = isize::MAX - i;
+                for l in &self.layers {
+                    if let Some(rd) = 
+                        l.ranges.iter().find(|rd| {rd.in_range.contains(&out)}) 
+                    {
+                        if rd.in_range.end > out && rd.in_range.end - out < delta {
+                            delta = rd.in_range.end - out;
+                        }
+                        out = out + rd.delta;
+                    } else {
+                        let mut potential_delta = isize::MAX - out;
+                        for rd in &l.ranges {
+                            if rd.in_range.start > out && rd.in_range.start - out < potential_delta {
+                                potential_delta = rd.in_range.start - out;
+                            }
+                            if potential_delta < delta {
+                                delta = potential_delta;
+                            }
+                        }
+                    }
+                }
+                if out < best {
+                    best = out;
+                }
+                if let Some(_) = 
+                    seed_ranges.iter().find(|r| {
+                        r.contains( &(i + delta))
+                    })
+                {
+                    i += delta
+                } else if let Some(r) = seed_ranges.iter().find(|r| {
+                    r.start > i + delta
+                }) {
+                    i = r.start;
+                } else {
+                    i = isize::MAX;
+                }
+            }
+            
+            best
         }
     }
 
@@ -107,7 +161,7 @@ mod year2023day5 {
             fn handle_parse_range_delta() {
                 let parsed = RangeDelta::parse("50 98 2");
                 let expected = RangeDelta {
-                    range: 98..100,
+                    in_range: 98..100,
                     delta: -48,
                 };
                 assert_eq!(parsed, expected);
@@ -124,10 +178,10 @@ mod year2023day5 {
 
                 let expected_first_layer = Layer {
                     ranges: vec![RangeDelta {
-                        range: 98..100,
+                        in_range: 98..100,
                         delta: -48,
                     }, RangeDelta {
-                        range: 50..98,
+                        in_range: 50..98,
                         delta: 2,
                     }]
                 };
@@ -135,7 +189,7 @@ mod year2023day5 {
                 assert_eq!(7, parsed.layers.len());
             }
         }
-        
+
         mod part1 {
             use crate::year2023day5::year2023day5::Input;
 
@@ -149,6 +203,22 @@ mod year2023day5 {
             fn solution() {
                 let input = Input::parse("input/2023-05-input.txt");
                 assert_eq!(600279879, input.part1());
+            }
+        }
+
+        mod part2 {
+            use crate::year2023day5::year2023day5::Input;
+
+            #[test]
+            fn example() {
+                let input = Input::parse("input/2023-05-e1.txt");
+                assert_eq!(46, input.part2());
+            }
+
+            #[test]
+            fn solution() {
+                let input = Input::parse("input/2023-05-input.txt");
+                assert_eq!(20191102, input.part2());
             }
         }
     }
