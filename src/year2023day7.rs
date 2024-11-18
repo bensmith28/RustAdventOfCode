@@ -6,10 +6,13 @@ mod year2023day7 {
     use crate::read_lines;
     use crate::year2023day7::year2023day7::HandType::{FiveOfAKind, FourOfAKind, FullHouse, HighCard, OnePair, ThreeOfAKind, TwoPair};
 
+    type Cards = Vec<char>;
+    type Bid = usize;
+
     #[derive(PartialEq, Debug, Eq)]
     struct Hand {
-        cards: Vec<char>,
-        bid: usize
+        cards: Cards,
+        bid: Bid,
     }
 
     #[derive(PartialEq, Debug, Ord, PartialOrd, Eq)]
@@ -24,57 +27,40 @@ mod year2023day7 {
     }
 
     impl Hand {
+        fn new(cards: Cards, bid: Bid) -> Self {
+            Self { cards, bid }
+        }
+
         fn hand_type(&self) -> HandType {
-            let mut count_map: HashMap<char, usize> = HashMap::new();
-            for card in &self.cards {
-                count_map.entry(*card).and_modify(|v| *v += 1).or_insert(1);
+            let mut count_map: HashMap<char, usize> = self.cards
+                .iter()
+                .fold(HashMap::new(), |mut map, &card| {
+                    *map.entry(card).or_insert(0) += 1;
+                    map
+                });
+
+            let wilds = count_map.remove(&'W').unwrap_or(0);
+            let mut counts: Vec<_> = count_map.values().copied().collect();
+            counts.sort_unstable_by(|a, b| b.cmp(a));
+
+            // Add a 0 if counts is empty to avoid panic
+            if counts.is_empty() {
+                counts.push(0);
             }
-            let wilds = *count_map.get(&'W').unwrap_or(&0usize);
-            let mut counts = count_map.into_values().collect::<Vec<_>>();
-            counts.push(0); // always have at least two values so the match line doesn't panic
-            counts.sort();
-            counts.reverse();
-            match (counts[0], counts[1]) {
+
+            // 6. Match with guards for better readability
+            match (counts[0] + wilds, counts.get(1).copied().unwrap_or(0)) {
                 (5, _) => FiveOfAKind,
-                (4, _) => match wilds {
-                    1 | 4 => FiveOfAKind,
-                    0 => FourOfAKind,
-                    _ => unreachable!("How'd we get here?")
-                },
-                (3, 2) => match wilds {
-                    3 | 2 => FiveOfAKind,
-                    0 => FullHouse,
-                    _ => unreachable!("How'd we get here?")
-                },
-                (3, other) => match (wilds, other) {
-                    (3, 2) => unreachable!("covered by full house"),
-                    (3, 1) => FourOfAKind,
-                    (3, 0) => ThreeOfAKind,
-                    (2, _) => unreachable!("covered by full house"),
-                    (1, _) => FourOfAKind,
-                    (0, _) => ThreeOfAKind,
-                    (_,_) => unreachable!("How'd we get here?")
-                },
-                (2, 2) => match wilds {
-                    2 => FourOfAKind,
-                    1 => FullHouse,
-                    0 => TwoPair,
-                    _ => unreachable!("How'd we get here?")
-                },
-                (2, _) => match wilds {
-                    1 | 2 => ThreeOfAKind,
-                    0 => OnePair,
-                    _ => unreachable!("How'd we get here?")
-                },
-                (_, _) => match wilds {
-                    1 => OnePair,
-                    0 => HighCard,
-                    _ => unreachable!("How'd we get here?")
-                }
+                (4, _) => FourOfAKind,
+                (3, 2) => FullHouse,
+                (3, _) => ThreeOfAKind,
+                (2, 2) => TwoPair,
+                (2, _) => OnePair,
+                _ => HighCard,
             }
         }
 
-        fn card_to_score(card: &char) -> usize {
+        const fn card_to_score(card: &char) -> usize {
             // A, K, Q, J, T, 9, 8, 7, 6, 5, 4, 3, or 2
             match card {
                 'A' => 0,
@@ -91,29 +77,48 @@ mod year2023day7 {
                 '3' => 11,
                 '2' => 12,
                 'W' => 13,
-                _ => unreachable!()
+                _ => panic!("Invalid Card")
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    enum HandError {
+        InvalidFormat,
+        ParseBidError(std::num::ParseIntError),
+    }
+
+    impl std::error::Error for HandError {}
+
+    impl std::fmt::Display for HandError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                HandError::InvalidFormat => write!(f, "Invalid hand format"),
+                HandError::ParseBidError(e) => write!(f, "Failed to parse bid: {}", e),
             }
         }
     }
 
     impl FromStr for Hand {
-        type Err = &'static str;
+        type Err = HandError;
 
         fn from_str(value: &str) -> Result<Self, Self::Err> {
-            let mut split = value.split(' ');
-            if let (Some(cards_str), Some(bid_str)) = (split.next(), split.next()) {
-                let mut cards = Vec::new();
-                for card_char in cards_str.chars() {
-                    cards.push(card_char);
-                }
-                let bid = bid_str.trim().parse::<usize>().unwrap();
-                Ok(Hand {
-                    cards: cards,
-                    bid: bid
-                })
-            } else {
-                Err("Invalid hand")
-            }
+            let (cards_str, bid_str) = value
+                .split_once(' ')
+                .ok_or(HandError::InvalidFormat)?;
+
+            let cards: Cards = cards_str.chars().collect();
+            let bid = bid_str.trim()
+                .parse()
+                .map_err(HandError::ParseBidError)?;
+
+            Ok(Self::new(cards, bid))
+        }
+    }
+
+    impl std::fmt::Display for Hand {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{} {}", self.cards.iter().collect::<String>(), self.bid)
         }
     }
 
@@ -155,14 +160,14 @@ mod year2023day7 {
         result
     }
 
-    fn total_winnings(mut hands: Vec<Hand>) -> usize {
-        let mut sum = 0usize;
-        hands.sort();
-        for (i, hand) in hands.iter().rev().enumerate() {
-            sum += (i + 1) * hand.bid;
-        }
-
-        sum
+    fn total_winnings(hands: Vec<Hand>) -> usize {
+        let mut hands = hands;
+        hands.sort_unstable();  // sort_unstable is faster when stable sort isn't needed
+        hands.iter()
+            .rev()
+            .enumerate()
+            .map(|(i, hand)| (i + 1) * hand.bid)
+            .sum()
     }
 
     #[cfg(test)]
@@ -174,10 +179,10 @@ mod year2023day7 {
             fn parse_hand() {
                 let hand_str = "32T3K 765";
                 let actual: Hand = hand_str.parse().unwrap();
-                let expected = Hand {
-                    cards: vec!['3', '2', 'T', '3', 'K'],
-                    bid: 765
-                };
+                let expected = Hand::new(
+                    vec!['3', '2', 'T', '3', 'K'],
+                    765
+                );
                 assert_eq!(actual, expected);
             }
 
@@ -249,7 +254,7 @@ mod year2023day7 {
                 assert_eq!(actual, expected);
             }
         }
-        
+
         mod part1 {
             use crate::year2023day7::year2023day7::{parse_input, total_winnings};
 
@@ -267,7 +272,7 @@ mod year2023day7 {
                 assert_eq!(248453531, actual);
             }
         }
-        
+
         mod part2 {
             use crate::year2023day7::year2023day7::{parse_input, total_winnings};
 
