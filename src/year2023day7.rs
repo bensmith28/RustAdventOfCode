@@ -29,18 +29,48 @@ mod year2023day7 {
             for card in &self.cards {
                 count_map.entry(*card).and_modify(|v| *v += 1).or_insert(1);
             }
+            let wilds = *count_map.get(&'W').unwrap_or(&0usize);
             let mut counts = count_map.into_values().collect::<Vec<_>>();
             counts.push(0); // always have at least two values so the match line doesn't panic
             counts.sort();
             counts.reverse();
             match (counts[0], counts[1]) {
                 (5, _) => FiveOfAKind,
-                (4, _) => FourOfAKind,
-                (3, 2) => FullHouse,
-                (3, _) => ThreeOfAKind,
-                (2, 2) => TwoPair,
-                (2, _) => OnePair,
-                (_, _) => HighCard
+                (4, _) => match wilds {
+                    1 | 4 => FiveOfAKind,
+                    0 => FourOfAKind,
+                    _ => unreachable!("How'd we get here?")
+                },
+                (3, 2) => match wilds {
+                    3 | 2 => FiveOfAKind,
+                    0 => FullHouse,
+                    _ => unreachable!("How'd we get here?")
+                },
+                (3, other) => match (wilds, other) {
+                    (3, 2) => unreachable!("covered by full house"),
+                    (3, 1) => FourOfAKind,
+                    (3, 0) => ThreeOfAKind,
+                    (2, _) => unreachable!("covered by full house"),
+                    (1, _) => FourOfAKind,
+                    (0, _) => ThreeOfAKind,
+                    (_,_) => unreachable!("How'd we get here?")
+                },
+                (2, 2) => match wilds {
+                    2 => FourOfAKind,
+                    1 => FullHouse,
+                    0 => TwoPair,
+                    _ => unreachable!("How'd we get here?")
+                },
+                (2, _) => match wilds {
+                    1 | 2 => ThreeOfAKind,
+                    0 => OnePair,
+                    _ => unreachable!("How'd we get here?")
+                },
+                (_, _) => match wilds {
+                    1 => OnePair,
+                    0 => HighCard,
+                    _ => unreachable!("How'd we get here?")
+                }
             }
         }
 
@@ -60,6 +90,7 @@ mod year2023day7 {
                 '4' => 10,
                 '3' => 11,
                 '2' => 12,
+                'W' => 13,
                 _ => unreachable!()
             }
         }
@@ -111,10 +142,14 @@ mod year2023day7 {
         }
     }
 
-    fn parse_input(filename: &str) -> Vec<Hand> {
+    fn parse_input(filename: &str, jacks_wild: bool) -> Vec<Hand> {
         let mut result = Vec::new();
         for line in read_lines(filename) {
-            result.push(line.unwrap().parse().unwrap());
+            let mut line = line.unwrap();
+            if jacks_wild {
+                line = line.replace("J", "W");
+            }
+            result.push(line.parse().unwrap());
         }
 
         result
@@ -148,7 +183,7 @@ mod year2023day7 {
 
             #[test]
             fn handle_input() {
-                let actual = parse_input("input/2023-07-e1.txt");
+                let actual = parse_input("input/2023-07-e1.txt", false);
                 assert_eq!(5, actual.len());
             }
         }
@@ -167,7 +202,7 @@ mod year2023day7 {
 
             #[test]
             fn example() {
-                let actual = parse_input("input/2023-07-e1.txt")
+                let actual = parse_input("input/2023-07-e1.txt", false)
                     .iter().map(|h| h.hand_type()).collect::<Vec<_>>();
                 let expected = vec![OnePair, ThreeOfAKind, TwoPair, TwoPair, ThreeOfAKind];
                 assert_eq!(actual, expected);
@@ -179,7 +214,7 @@ mod year2023day7 {
 
             #[test]
             fn example_sort_hand_types() {
-                let mut actual = parse_input("input/2023-07-e1.txt")
+                let mut actual = parse_input("input/2023-07-e1.txt", false)
                     .iter().map(|h| h.hand_type()).collect::<Vec<_>>();
                 actual.sort();
                 let expected = vec![ThreeOfAKind, ThreeOfAKind, TwoPair, TwoPair, OnePair];
@@ -220,16 +255,34 @@ mod year2023day7 {
 
             #[test]
             fn example() {
-                let hands = parse_input("input/2023-07-e1.txt");
+                let hands = parse_input("input/2023-07-e1.txt", false);
                 let actual = total_winnings(hands);
                 assert_eq!(6440, actual);
             }
 
             #[test]
             fn solution() {
-                let hands = parse_input("input/2023-07-input.txt");
+                let hands = parse_input("input/2023-07-input.txt", false);
                 let actual = total_winnings(hands);
                 assert_eq!(248453531, actual);
+            }
+        }
+        
+        mod part2 {
+            use crate::year2023day7::year2023day7::{parse_input, total_winnings};
+
+            #[test]
+            fn example() {
+                let hands = parse_input("input/2023-07-e1.txt", true);
+                let actual = total_winnings(hands);
+                assert_eq!(5905, actual);
+            }
+
+            #[test]
+            fn solution() {
+                let hands = parse_input("input/2023-07-input.txt", true);
+                let actual = total_winnings(hands);
+                assert_eq!(248781813, actual);
             }
         }
     }
