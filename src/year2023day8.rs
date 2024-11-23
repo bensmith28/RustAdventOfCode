@@ -73,42 +73,55 @@ mod year2023day8 {
     fn follow_ghost_path(input: Input) -> usize {
         struct Link {
             root: String,
-            left: Option<usize>,
-            right: Option<usize>
+            left: usize,
+            right: usize,
+            is_end: bool
         }
-        let mut links = Vec::new();
+        
+        let mut links = Vec::with_capacity(input.nodes.len());
         
         for (n, _) in input.nodes.iter() {
             links.push(Link {
                 root: n.to_string(),
-                left: None,
-                right: None
+                left: 0,
+                right: 0,
+                is_end: n.ends_with("Z")
             })
         }
+        let mut positions: Vec<_> = Vec::new();
         for (_, node) in input.nodes.iter() {
             let left_idx = links.iter().position(|l| l.root == node.left).unwrap();
             let right_idx = links.iter().position(|l| l.root == node.right).unwrap();
             let root_idx = links.iter().position(|l| l.root == node.root).unwrap();
 
-            links[root_idx].left = Some(left_idx);
-            links[root_idx].right = Some(right_idx);
+            links[root_idx].left = left_idx;
+            links[root_idx].right = right_idx;
+            
+            if node.root.ends_with("A") {
+                positions.push(root_idx);
+            }
         }
-
-        let mut pointers: Vec<_> =
-            links.iter().filter(|l| l.root.ends_with("A")).map(|s| s).collect();
+        
         let mut counter = 0;
         
-        while !pointers.iter().all(|l| l.root.ends_with("Z")) {
-            let direction = &input.directions[counter % pointers.len()];
-            let mut next = Vec::new();
-            for p in pointers.iter() {
-                match direction {
-                    Direction::Left => next.push(&links[p.left.unwrap()]),
-                    Direction::Right => next.push(&links[p.right.unwrap()])
-                };
+        loop {
+            if positions.iter().all(|&pos| links[pos].is_end) {
+                break;
+            }
+
+            match &input.directions[counter % positions.len()] {
+                Direction::Left => {
+                    for p in positions.iter_mut() {
+                        *p = links[*p].left
+                    }
+                }
+                Direction::Right => {
+                    for p in positions.iter_mut() {
+                        *p = links[*p].right
+                    }
+                }
             }
             counter += 1;
-            pointers = next;
         }
         
         counter
