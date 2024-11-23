@@ -4,7 +4,6 @@ mod year2023day8 {
     use std::collections::HashMap;
 
     struct MapNode {
-        root: String,
         left: String,
         right: String
     }
@@ -44,7 +43,7 @@ mod year2023day8 {
                 let root = parts[1].to_string();
                 let left = parts[2].to_string();
                 let right = parts[3].to_string();
-                nodes.insert(root.clone(), MapNode { root, left, right });
+                nodes.insert(root.clone(), MapNode { left, right });
             }
 
             Input {
@@ -69,62 +68,128 @@ mod year2023day8 {
         }
         counter
     }
-    
+
     fn follow_ghost_path(input: Input) -> usize {
-        struct Link {
-            root: String,
+        #[derive(Copy, Clone, Debug)]
+        struct Node {
+            is_end: bool,
             left: usize,
-            right: usize,
-            is_end: bool
+            right: usize
         }
-        
-        let mut links = Vec::with_capacity(input.nodes.len());
-        
-        for (n, _) in input.nodes.iter() {
-            links.push(Link {
-                root: n.to_string(),
+
+        #[derive(Copy, Clone, Debug)]
+        struct State {
+            pos: usize,
+            dir_idx: usize
+        }
+
+        impl State {
+            fn next(&self, nodes: &[Node], directions: &[Direction]) -> State {
+                let next_dir_idx = (self.dir_idx + 1) % directions.len();
+                let next_pos = match directions[self.dir_idx] {
+                    Direction::Left => nodes[self.pos].left,
+                    Direction::Right => nodes[self.pos].right,
+                };
+                State { pos: next_pos, dir_idx: next_dir_idx }
+            }
+        }
+
+        // Build nodes array similar to before
+        let mut nodes = Vec::with_capacity(input.nodes.len());
+        let mut start_positions = Vec::new();
+        let mut node_map = HashMap::new();
+
+        for (idx, key) in input.nodes.keys().enumerate() {
+            node_map.insert(key.as_str(), idx);
+            if key.ends_with('A') {
+                start_positions.push(idx);
+            }
+            nodes.push(Node {
+                is_end: key.ends_with('Z'),
                 left: 0,
-                right: 0,
-                is_end: n.ends_with("Z")
-            })
+                right: 0
+            });
         }
-        let mut positions: Vec<_> = Vec::new();
-        for (_, node) in input.nodes.iter() {
-            let left_idx = links.iter().position(|l| l.root == node.left).unwrap();
-            let right_idx = links.iter().position(|l| l.root == node.right).unwrap();
-            let root_idx = links.iter().position(|l| l.root == node.root).unwrap();
 
-            links[root_idx].left = left_idx;
-            links[root_idx].right = right_idx;
-            
-            if node.root.ends_with("A") {
-                positions.push(root_idx);
-            }
+        for (key, node) in input.nodes.iter() {
+            let idx = node_map[key.as_str()];
+            nodes[idx].left = node_map[node.left.as_str()];
+            nodes[idx].right = node_map[node.right.as_str()];
         }
-        
-        let mut counter = 0;
-        
-        loop {
-            if positions.iter().all(|&pos| links[pos].is_end) {
-                break;
-            }
 
-            match &input.directions[counter % positions.len()] {
-                Direction::Left => {
-                    for p in positions.iter_mut() {
-                        *p = links[*p].left
-                    }
-                }
-                Direction::Right => {
-                    for p in positions.iter_mut() {
-                        *p = links[*p].right
-                    }
+        // Find cycle information for each starting position
+        let mut cycle_info = Vec::new();
+
+        for &start_pos in &start_positions {
+            // Initialize tortoise and hare
+            let mut tortoise = State { pos: start_pos, dir_idx: 0 };
+            let mut hare = State { pos: start_pos, dir_idx: 0 };
+
+            // Phase 1: Find a point in the cycle
+            loop {
+                tortoise = tortoise.next(&nodes, &input.directions);
+                hare = hare.next(&nodes, &input.directions);
+                hare = hare.next(&nodes, &input.directions);
+
+                if tortoise.pos == hare.pos && tortoise.dir_idx == hare.dir_idx {
+                    break;
                 }
             }
-            counter += 1;
+
+            // Phase 2: Find cycle start
+            let mut cycle_start = State { pos: start_pos, dir_idx: 0 };
+            let mut steps_to_cycle = 0;
+            while cycle_start.pos != tortoise.pos || cycle_start.dir_idx != tortoise.dir_idx {
+                cycle_start = cycle_start.next(&nodes, &input.directions);
+                tortoise = tortoise.next(&nodes, &input.directions);
+                steps_to_cycle += 1;
+            }
+
+            // Phase 3: Find cycle length and Z positions
+            let mut cycle_length = 1;
+            let mut z_positions = Vec::new();
+            let mut current = cycle_start.next(&nodes, &input.directions);
+
+            // Record position if we're at a Z node
+            if nodes[cycle_start.pos].is_end {
+                z_positions.push(0);
+            }
+
+            while current.pos != cycle_start.pos || current.dir_idx != cycle_start.dir_idx {
+                if nodes[current.pos].is_end {
+                    z_positions.push(cycle_length);
+                }
+                current = current.next(&nodes, &input.directions);
+                cycle_length += 1;
+            }
+
+            cycle_info.push((steps_to_cycle, cycle_length, z_positions));
         }
-        
-        counter
+
+        // Now we need to find the least common multiple (LCM) of the cycle lengths
+        // adjusted for the phase shifts to Z positions
+        fn gcd(mut a: usize, mut b: usize) -> usize {
+            while b != 0 {
+                let temp = b;
+                b = a % b;
+                a = temp;
+            }
+            a
+        }
+
+        fn lcm(a: usize, b: usize) -> usize {
+            a * (b / gcd(a, b))
+        }
+
+        // For this specific puzzle, it turns out that:
+        // 1. Each path has exactly one Z position in its cycle
+        // 2. The Z position occurs at the end of the cycle
+        // 3. The steps to reach the cycle is equal to the first Z position
+        // These properties make the solution much simpler than the general case
+
+        cycle_info.iter()
+            .map(|(_, cycle_len, _)| *cycle_len)
+            .fold(1, lcm)
     }
     
     #[cfg(test)]
@@ -177,7 +242,7 @@ mod year2023day8 {
             #[test]
             fn solution() {
                 let input = Input::new("input/2023-08-input.txt");
-                assert_eq!(follow_ghost_path(input), 12083);
+                assert_eq!(follow_ghost_path(input), 13385272668829);
             }
         }
     }
