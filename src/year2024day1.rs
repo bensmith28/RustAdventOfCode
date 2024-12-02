@@ -1,48 +1,32 @@
 mod year2024day1 {
     use crate::read_lines;
 
+    fn parse_lists(filename: &str) -> (Vec<usize>, Vec<usize>) {
+        read_lines(filename)
+            .map(|r| {
+                let line = r.unwrap();
+                let mut split = line.split_whitespace();
+                (split.next().unwrap().parse::<usize>().unwrap(), 
+                 split.next().unwrap().parse::<usize>().unwrap())
+            }).unzip()
+    }
+    
     fn part1(filename: &str) -> usize {
-        let mut list1: Vec<usize> = Vec::new();
-        let mut list2: Vec<usize> = Vec::new();
-        
-        let mut iter = read_lines(filename);
-        while let Some(Ok(line)) = iter.next() {
-            let mut split = line.split_whitespace();
-            list1.push(split.next().unwrap().parse::<usize>().unwrap());
-            list2.push(split.next().unwrap().parse::<usize>().unwrap());
-        }
-        
+        let (mut list1, mut list2) = parse_lists(filename);
         list1.sort();
         list2.sort();
         
-        let mut iter1 = list1.iter();
-        let mut iter2 = list2.iter();
-        let mut result = 0;
-        while let (Some(e1), Some(e2)) = (iter1.next(), iter2.next()) {
-            result += if e1 > e2 { e1 - e2 } else { e2 - e1 };
-        }
-        
-        result
+        list1.iter().zip(list2.iter())
+            .map(|(&a, &b)| a.abs_diff(b))
+            .sum()
     }
-    
-    fn part2(filename: &str) -> usize {
-        let mut list1: Vec<usize> = Vec::new();
-        let mut list2: Vec<usize> = Vec::new();
 
-        let mut iter = read_lines(filename);
-        while let Some(Ok(line)) = iter.next() {
-            let mut split = line.split_whitespace();
-            list1.push(split.next().unwrap().parse::<usize>().unwrap());
-            list2.push(split.next().unwrap().parse::<usize>().unwrap());
-        }
+    fn part2(filename: &str) -> usize {
+        let (list1, list2) = parse_lists(filename);
         
-        let mut score = 0;
-        
-        for e1 in list1 {
-            score += e1 * list2.iter().filter(|&&e2| e2 == e1).count();
-        }
-        
-        score
+        list1.iter().fold(0, |acc, &e1| {
+            acc + e1 * list2.iter().filter(|&&e2| e1 == e2).count()
+        })
     }
     
     #[cfg(test)]
