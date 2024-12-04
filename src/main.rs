@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader, Lines};
+use std::io::{BufRead, BufReader, Lines, Read};
 
 mod year2023day1;
 mod year2023day2;
@@ -14,6 +14,7 @@ mod year2023day10;
 mod year2024day1;
 mod year2024day2;
 mod year2023day11;
+mod year2024day3;
 
 fn main() {
     println!("Hello, world!");
@@ -27,4 +28,16 @@ fn read_lines(file_name: &str) -> Lines<BufReader<File>> {
     let reader = BufReader::new(file.unwrap());
 
     reader.lines()
+}
+
+fn read_string(file_name: &str) -> String {
+    let file = File::open(file_name);
+    if file.is_err() {
+        panic!("Error opening file {}", file_name);
+    }
+    let mut s = String::new();
+    if file.unwrap().read_to_string(&mut s).is_err() {
+        panic!("Error reading file {}", file_name);
+    }
+    s
 }
