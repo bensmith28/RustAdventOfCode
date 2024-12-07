@@ -3,6 +3,8 @@ mod year2024day6 {
     use crate::year2024day6::year2024day6::Direction::*;
     use crate::year2024day6::year2024day6::TraceError::Loop;
     use std::collections::HashSet;
+    use std::sync::mpsc;
+    use std::thread;
 
     struct Floor {
         guard: Position,
@@ -129,21 +131,28 @@ mod year2024day6 {
     fn part2(filename: &str) -> usize {
         let mut floor = Floor::new(filename);
         let _ = floor.trace_path();
-        let mut possible_obstacles = HashSet::new();
-        for p in &floor.path {
-            if *p == floor.guard_start { continue }
+        let floor = floor;
+        let mut looping_obstacles = HashSet::new();
+        let (tx, rx) = mpsc::channel();
+        for (i, &p) in floor.path.iter().enumerate() {
+            if i == 0 { continue }
             let mut attempt = floor.plus_obstacle(p.location);
-            if attempt.trace_path().is_err() {
-                possible_obstacles.insert(p.location.clone());
+            let tx1 = tx.clone();
+            let _ = thread::spawn(move || {
+                match attempt.trace_path() {
+                    Err(_) => tx1.send(Some(p.location.clone())).unwrap(),
+                    Ok(_) => tx1.send(None).unwrap()
+                }
+            });
+        }
+        
+        for _ in 0..floor.path.len() - 1 {
+            if let Some(p) = rx.recv().unwrap() {
+                looping_obstacles.insert(p);
             }
         }
-        // 6,3
-        // 7,6
-        // 7,7x
-        // 8,1x
-        // 8,3x
-        // 9,7
-        possible_obstacles.len()
+        
+        looping_obstacles.len()
     }
 
     #[cfg(test)]
