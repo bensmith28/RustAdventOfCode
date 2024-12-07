@@ -134,22 +134,19 @@ mod year2024day6 {
         let floor = floor;
         let mut looping_obstacles = HashSet::new();
         let (tx, rx) = mpsc::channel();
-        for (i, &p) in floor.path.iter().enumerate() {
-            if i == 0 { continue }
+        for &p in floor.path.iter() {
+            if p == floor.guard_start { continue }
             let mut attempt = floor.plus_obstacle(p.location);
             let tx1 = tx.clone();
             let _ = thread::spawn(move || {
-                match attempt.trace_path() {
-                    Err(_) => tx1.send(Some(p.location.clone())).unwrap(),
-                    Ok(_) => tx1.send(None).unwrap()
+                if let Err(Loop) = attempt.trace_path() {
+                    tx1.send(p.location.clone()).unwrap()
                 }
             });
         }
-        
-        for _ in 0..floor.path.len() - 1 {
-            if let Some(p) = rx.recv().unwrap() {
-                looping_obstacles.insert(p);
-            }
+        drop(tx);
+        while let Ok(p) = rx.recv() {
+            looping_obstacles.insert(p);
         }
         
         looping_obstacles.len()
