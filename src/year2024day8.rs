@@ -65,7 +65,6 @@ mod year2024day8 {
             for row in 0..height {
                 if (row - self.location.0) % rise != 0 { continue }
                 let steps = (row - self.location.0) / rise;
-                let delta_rise = steps * rise;
                 let delta_run = steps * run;
                 let col = delta_run + self.location.1;
                 if col < 0 || col >= width { continue }
