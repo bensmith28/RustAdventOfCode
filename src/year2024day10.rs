@@ -56,30 +56,17 @@ mod year2024day10 {
         }
         peaks.len()
     }
-
-    #[derive(Eq, PartialEq, Hash)]
-    struct Trail {
-        hiker: Coord,
-        path: Vec<Coord>
-    }
-
-    impl Trail {
-        fn new(c: Coord) -> Self {
-            Self {
-                hiker: c,
-                path: vec![c],
-            }
-        }
-    }
+    
+    type Trail = Vec<Coord>;
 
     fn wander_part_2(trailhead: Coord, trail_map: TrailMap) -> usize {
         let mut trails: HashSet<Trail> = HashSet::new();
         let height = trail_map.len();
         let width = trail_map[0].len();
-        let mut options = vec![Trail::new(trailhead)];
+        let mut options: Vec<Trail> = vec![vec![trailhead]];
         while !options.is_empty() {
             let current_trail = options.pop().unwrap();
-            let current = current_trail.hiker;
+            let current = current_trail.last().unwrap();
             let next_elevation = trail_map[current.0][current.1] + 1;
             if next_elevation == 10 {
                 trails.insert(current_trail);
@@ -88,42 +75,30 @@ mod year2024day10 {
             // Up
             if current.0 > 0 && trail_map[current.0 - 1][current.1] == next_elevation {
                 let up = (current.0 - 1, current.1);
-                let mut path = current_trail.path.clone();
-                path.push(up);
-                options.push(Trail {
-                    hiker: up,
-                    path
-                });
+                let mut trail = current_trail.clone();
+                trail.push(up);
+                options.push(trail);
             }
             // Down
             if current.0 < height - 1 && trail_map[current.0 + 1][current.1] == next_elevation {
                 let down = (current.0 + 1, current.1);
-                let mut path = current_trail.path.clone();
-                path.push(down);
-                options.push(Trail {
-                    hiker: down,
-                    path
-                });
+                let mut trail = current_trail.clone();
+                trail.push(down);
+                options.push(trail);
             }
             // Left
             if current.1 > 0 && trail_map[current.0][current.1 - 1] == next_elevation {
                 let left = (current.0, current.1 - 1);
-                let mut path = current_trail.path.clone();
-                path.push(left);
-                options.push(Trail {
-                    hiker: left,
-                    path
-                });
+                let mut trail = current_trail.clone();
+                trail.push(left);
+                options.push(trail);
             }
             // Right
             if current.1 < width - 1 && trail_map[current.0][current.1 + 1] == next_elevation {
                 let right = (current.0, current.1 + 1);
-                let mut path = current_trail.path.clone();
-                path.push(right);
-                options.push(Trail {
-                    hiker: right,
-                    path
-                });
+                let mut trail = current_trail.clone();
+                trail.push(right);
+                options.push(trail);
             }
         }
         trails.len()
