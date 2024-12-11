@@ -1,7 +1,8 @@
 mod year2024day9 {
-    use std::collections::HashSet;
+    use std::ops::Range;
     use crate::read_string;
-    
+    use crate::year2024day9::year2024day9::Block::{FileBlock, FreeBlock};
+
     struct File {
         id: usize,
         length: usize,
@@ -64,65 +65,73 @@ mod year2024day9 {
         checksum
     }
     
+    #[derive(Clone, Eq, PartialEq)]
+    enum Block {
+        FreeBlock,
+        FileBlock,
+    }
+    
+    struct FileHeader {
+        id: usize,
+        length: usize,
+        position: Range<usize>
+    }
+
     fn part2(filename: &str) -> usize {
         let diskmap = read_string(filename)
             .chars()
             .map(|c| c.to_digit(10).unwrap() as usize)
             .collect::<Vec<_>>();
         let mut checksum = 0;
-
-        let mut pointer_next = 0;
-        let mut map_index = 0;
         
-        let mut files_consumed: HashSet<usize> = HashSet::new();
-        
-        while map_index < diskmap.len() {
-            let length = diskmap[map_index];
-            if map_index % 2 != 0 || files_consumed.contains(&(map_index / 2)) {
-                // free
-                let mut length = length;
-                if map_index % 2 == 0 && map_index + 1 < diskmap.len() {
-                    length += diskmap[map_index + 1];
-                    map_index += 1;
+        let total_blocks: usize = diskmap.iter().sum();
+        let mut pointer = 0;
+        let mut files = Vec::new();
+        let mut block_map = vec![FreeBlock; total_blocks];
+        for (i, v) in diskmap.iter().enumerate() {
+            if i % 2 == 0 {
+                for p in pointer..pointer+v {
+                    block_map[p] = FileBlock
                 }
-                let mut scan = diskmap.len() - 1;
-                while length > 0  && scan > map_index {
-                    'look_for_a_file: while scan > map_index {
-                        if scan % 2 != 0 { 
-                            scan -= 1;
-                            continue 
-                        }
-                        let scan_id = scan / 2;
-                        if files_consumed.contains(&scan_id) { 
-                            scan -= 1;
-                            continue 
-                        }
-                        let scan_length = diskmap[scan];
-                        scan -= 1;
-                        if scan_length <= length {
-                            for i in pointer_next..pointer_next + scan_length {
-                                checksum += i * scan_id;
-                            }
-                            pointer_next += scan_length;
-                            files_consumed.insert(scan_id);
-                            length -= scan_length;
-                            scan = diskmap.len() - 1;
-                            break 'look_for_a_file;
-                        }
-                    }
-                }
-                pointer_next += length;
-            } else {
-                // file
-                let id = map_index / 2;
-                for i in pointer_next..pointer_next + length {
-                    checksum += i * id;
-                }
-                pointer_next += length;
+                files.push(FileHeader {
+                    id: i / 2,
+                    length: *v,
+                    position: pointer..pointer+v
+                });
             }
-            map_index += 1;
+            pointer += v;
         }
         
+        for file in files.iter_mut().rev() {
+            pointer = 0;
+            'scan_for_free: while pointer < file.position.start {
+                if block_map[pointer] == FileBlock {
+                    pointer += 1;
+                } else {
+                    let mut scan = pointer;
+                    while block_map[scan] == FreeBlock {
+                        scan += 1;
+                    }
+                    if scan-pointer >= file.length {
+                        // I am ignoring the fact that I'm leaving behind a section of the
+                        // block map where file used to be.
+                        file.position = pointer..pointer+file.length;
+                        for p in pointer..pointer+file.length {
+                            block_map[p] = FileBlock;
+                        }
+                        break 'scan_for_free;
+                    }
+                    pointer = scan;
+                }
+            }
+        }
+        
+        for file in files {
+            for p in file.position {
+                checksum += file.id * p;
+            }
+        }
+
         checksum
     }
     
@@ -182,8 +191,12 @@ mod year2024day9 {
             
             #[test]
             fn example2() {
-                // TODO scan from the right, dummy
                 assert_eq!(2858, part2("input/2024-09-e2.txt"))
+            }
+            
+            #[test]
+            fn solution() {
+                assert_eq!(818626, part2("input/2024-09-input.txt"))
             }
         }
     }
