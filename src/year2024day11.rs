@@ -1,47 +1,80 @@
 mod year2024day11 {
+    use std::sync::mpsc;
+    use std::thread;
 
-    fn blink_into(source: &Vec<usize>, destination: &mut Vec<usize>) {
-        destination.clear();
-        for &stone in source {
-            if stone == 0 {
-                destination.push(1);
-            } else if stone.to_string().len() % 2 == 0 {
-                let s = stone.to_string();
-                let a = s[0..s.len() / 2].parse::<usize>().unwrap();
-                let b = s[s.len() / 2..s.len()].parse::<usize>().unwrap();
-                destination.push(a);
-                destination.push(b);
+    #[derive(Clone)]
+    struct Stone {
+        value: usize,
+        blinks: usize
+    }
+
+    fn has_even_number_of_digits(value: usize) -> bool {
+        ((value as f64).log10().floor() as usize + 1) % 2 == 0
+    }
+    
+    impl Stone {
+        fn new(value: usize) -> Self {
+            Stone { value, blinks: 0 }
+        }
+        
+        fn blink(&mut self) -> Option<Stone> {
+            self.blinks += 1;
+            if self.value == 0 {
+                self.value = 1;
+            } else if has_even_number_of_digits(self.value) {
+                let power = (self.value as f64).log10().floor() as u32;
+                let half_power = power / 2;
+                let a = self.value / 10usize.pow(half_power + 1);
+                let b = self.value % 10usize.pow(half_power + 1);
+                self.value = a;
+                let mut clone = self.clone();
+                clone.value = b;
+                return Some(clone)
             } else {
-                destination.push(stone * 2024);
+                self.value *= 2024;
             }
+            None
         }
     }
     
     fn do_blinks(filename: &str, n: usize) -> usize {
         let input = std::fs::read_to_string(filename).unwrap()
             .split_whitespace()
-            .map(|s| s.parse::<usize>().unwrap())
-            .collect::<Vec<usize>>();
-
-        let mut a = input;
-        let mut b = Vec::new();
-        let mut lastest_is_a = true;
-
-        for i in 0..n {
-            if i % 2 == 0 {
-                blink_into(&a, &mut b);
-                lastest_is_a = false;
-            } else {
-                blink_into(&b, &mut a);
-                lastest_is_a = true;
-            }
+            .map(|s| {
+                let value = s.parse::<usize>().unwrap();
+                Stone::new(value)
+            })
+            .collect::<Vec<Stone>>();
+        let mut count = 0;
+        
+        let (tx, rx) = mpsc::channel();
+        
+        for stone in input {
+            let mut stones = vec![stone];
+            let tx1 = tx.clone();
+            let _ = thread::spawn(move || {
+                let mut count = 0;
+                let mut others = Vec::new();
+                while !stones.is_empty() {
+                    let mut stone = stones.pop().unwrap();
+                    for _ in stone.blinks..n {
+                        if let Some(s) = stone.blink() {
+                            others.push(s);
+                        }
+                    }
+                    count += 1;
+                    stones.append(&mut others);
+                }
+                tx1.send(count).unwrap();
+            });
         }
-
-        if lastest_is_a {
-            a.len()
-        } else {
-            b.len()
+        drop(tx);
+        
+        while let Ok(c) = rx.recv() {
+            count += c;
         }
+        
+        count
     }
 
     #[cfg(test)]
@@ -61,6 +94,11 @@ mod year2024day11 {
         }
         mod part2 {
             use crate::year2024day11::year2024day11::do_blinks;
+            
+            #[test]
+            fn example() {
+                assert_eq!(19025, do_blinks("input/2024-11-t1.txt", 25));
+            }
 
             #[test]
             fn solution() {
