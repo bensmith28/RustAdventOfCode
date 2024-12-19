@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use crate::read_lines;
 
 struct Garden {
@@ -16,17 +17,77 @@ impl Region {
             coords_are_adjacent(me, other)
         })
     }
-    
+
     fn area(&self) -> usize {
         self.coords.len()
     }
-    
+
     fn perimeter(&self) -> usize {
         self.coords.iter().map(|coord| {
             4 - self.coords.iter().filter(|other| {
                 *other != coord && coords_are_adjacent(coord, other)
             }).count()
         }).sum()
+    }
+    
+    fn side_count(&self) -> usize {
+        let row_first_sort = |a: &&Coord, b: &&Coord| -> Ordering {
+            let row = a.0.cmp(&b.0);
+            if row != Ordering::Equal {
+                row
+            } else {
+                a.1.cmp(&b.1)
+            }
+        };
+        let col_first_sort = |a: &&Coord, b: &&Coord| -> Ordering {
+            let col = a.1.cmp(&b.1);
+            if col != Ordering::Equal {
+                col
+            } else {
+                a.0.cmp(&b.0)
+            }
+        };
+        let mut segments = 4;
+        let mut ups = self.coords.iter().filter(|coord| {
+            coord.0 == 0 || !self.coords.contains(&(coord.0 - 1, coord.1))
+        }).collect::<Vec<_>>();
+        ups.sort_by(row_first_sort);
+        for window in ups.windows(2) {
+            if window[0].0 != window[1].0 || window[0].1 + 1 != window[1].1 {
+                segments += 1;
+            }
+        }
+        
+        let mut rights = self.coords.iter().filter(|coord| {
+            !self.coords.contains(&(coord.0, coord.1 + 1))
+        }).collect::<Vec<_>>(); 
+        rights.sort_by(col_first_sort);
+        for window in rights.windows(2) {
+            if window[0].1 != window[1].1 || window[0].0 + 1 != window[1].0 {
+                segments += 1;
+            }
+        }
+        
+        let mut downs = self.coords.iter().filter(|coord| {
+            !self.coords.contains(&(coord.0 + 1, coord.1))
+        }).collect::<Vec<_>>();
+        downs.sort_by(row_first_sort);
+        for window in downs.windows(2) {
+            if window[0].0 != window[1].0 || window[0].1 + 1 != window[1].1 {
+                segments += 1;
+            }
+        }
+        
+        let mut lefts = self.coords.iter().filter(|coord| {
+            coord.1 == 0 || !self.coords.contains(&(coord.0, coord.1 - 1))
+        }).collect::<Vec<_>>();
+        lefts.sort_by(col_first_sort);
+        for window in lefts.windows(2) {
+            if window[0].1 != window[1].1 || window[0].0 + 1 != window[1].0 {
+                segments += 1;
+            }
+        }
+        segments
     }
 }
 
@@ -62,14 +123,18 @@ impl Garden {
             row += 1;
         }
         regions.retain(|r| !r.coords.is_empty());
-        
+
         Garden {
             regions
         }
     }
-    
+
     fn price(&self) -> usize {
         self.regions.iter().map(|r| r.area() * r.perimeter()).sum()
+    }
+
+    fn price_by_side(&self) -> usize {
+        self.regions.iter().map(|r| r.area() * r.side_count()).sum()
     }
 }
 
@@ -95,11 +160,44 @@ mod tests {
             let garden = Garden::new("input/2024-12-e3.txt");
             assert_eq!(1930, garden.price());
         }
-        
+
         #[test]
         fn solution() {
             let garden = Garden::new("input/2024-12-input.txt");
             assert_eq!(1370258, garden.price());
+        }
+    }
+    mod part2 {
+        use crate::year2024day12::Garden;
+
+        #[test]
+        fn example1() {
+            let garden = Garden::new("input/2024-12-e1.txt");
+            assert_eq!(80, garden.price_by_side());
+        }
+
+        #[test]
+        fn example3() {
+            let garden = Garden::new("input/2024-12-e3.txt");
+            assert_eq!(1206, garden.price_by_side());
+        }
+
+        #[test]
+        fn example4() {
+            let garden = Garden::new("input/2024-12-e4.txt");
+            assert_eq!(236, garden.price_by_side());
+        }
+
+        #[test]
+        fn example5() {
+            let garden = Garden::new("input/2024-12-e5.txt");
+            assert_eq!(368, garden.price_by_side());
+        }
+
+        #[test]
+        fn solution() {
+            let garden = Garden::new("input/2024-12-input.txt");
+            assert_eq!(805814, garden.price_by_side());
         }
     }
 }
