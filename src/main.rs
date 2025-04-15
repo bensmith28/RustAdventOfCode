@@ -27,6 +27,7 @@ mod year2024day11;
 mod year2024day12;
 mod year2024day13;
 mod year2024day14;
+mod year2024day15;
 
 fn main() {
     println!("Hello, world!");
