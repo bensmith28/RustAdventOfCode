@@ -108,7 +108,120 @@ fn part1(filename: &str) -> usize {
     }
     score
 }
-fn part2() {}
+
+type XY = (isize, isize);
+
+#[derive(Clone, Eq, PartialEq)]
+struct Box {
+    position: XY
+}
+
+impl Box {
+    fn new(position: XY) -> Self {
+        Self { position }
+    }
+    
+    fn contains(&self, position: XY) -> bool {
+        self.position.0 == position.0 && (self.position.1 == position.1 || self.position.1  + 1 == position.1)
+    }
+    
+    fn edges(&self) -> Vec<XY> {
+        vec![self.position, (self.position.0, self.position.1 + 1)]
+    }
+    
+    fn score(&self) -> usize {
+        (100 * self.position.0 + self.position.1) as usize
+    }
+}
+
+struct StretchedRoom {
+    boxes: Vec<Box>,
+    walls: Vec<XY>,
+    robot: XY
+}
+
+impl StretchedRoom {
+    fn new(room: Room) -> Self {
+        let mut boxes = Vec::new();
+        let mut walls = Vec::new();
+        let mut robot = (-1,-1);
+        for (r, tiles) in room.iter().enumerate() {
+            for (c, tile) in tiles.iter().enumerate() {
+                match tile {
+                    Tile::Box => {
+                        boxes.push(Box::new((r as isize, (c * 2)as isize)));
+                    },
+                    Tile::Wall => {
+                        walls.push((r as isize, (c*2) as isize));
+                        walls.push((r as isize, (c*2 + 1) as isize));
+
+                    },
+                    Tile::Robot => {
+                        robot = (r as isize, (c * 2) as isize);
+                    },
+                    Tile::Empty => {}
+                }
+            }
+        }
+        Self {
+            boxes,
+            walls,
+            robot
+        }
+    }
+    
+    fn move_robot(&mut self, m: &Move) {
+        let delta = match m { 
+            Move::Up => (-1, 0),
+            Move::Down => (1, 0),
+            Move::Left => (0, -1),
+            Move::Right => (0, 1)
+        };
+        
+        let potential_robot_position = (self.robot.0 + delta.0, self.robot.1 + delta.1);
+        if self.walls.contains(&potential_robot_position) {
+            return
+        }
+        
+        let mut collisions = self.boxes.iter()
+            .filter(|b| b.contains(potential_robot_position))
+            .collect::<Vec<_>>();
+        let mut moved = Vec::new();
+        
+        while let Some(b) = collisions.pop() {
+            for p in b.edges() {
+                let p_moved = (p.0 + delta.0, p.1 + delta.1);
+                if self.walls.contains(&p_moved) { return; }
+                for c in self.boxes.iter().filter(|other| !other.eq(&b) && other.contains(p_moved)) {
+                    collisions.push(c);
+                }
+                moved.push(b.position);
+            }
+        }
+        
+        self.robot = potential_robot_position;
+        for b in self.boxes.iter_mut().filter(|b| moved.contains(&b.position)) {
+            b.position = (b.position.0 + delta.0, b.position.1 + delta.1);
+        }
+    }
+    
+    fn score(&self) -> usize {
+        let mut score = 0;
+        for b in &self.boxes {
+            score += b.score();
+        }
+        score
+    }
+}
+
+fn part2(filename: &str) -> usize {
+    let (room, moves) = parse(filename);
+    let mut stretched_room = StretchedRoom::new(room);
+    for m in moves {
+        stretched_room.move_robot(&m);
+    }
+    stretched_room.score()
+}
 
 #[cfg(test)]
 mod tests {
@@ -136,5 +249,18 @@ mod tests {
         fn actual() {
             assert_eq!(1383666, part1("input/2024-15-input.txt"));
         }
+    }
+    
+    mod part2 {
+        use crate::year2024day15::part2;
+
+        #[test]
+        fn example() {
+            assert_eq!(9021, part2("input/2024-15-e1.txt"));
+        }
+        
+        #[test]
+        fn solution() {
+            assert_eq!(1412866, part2("input/2024-15-input.txt"));}
     }
 }
